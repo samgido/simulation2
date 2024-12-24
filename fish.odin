@@ -3,20 +3,20 @@ package main
 import "vendor:raylib"
 import "core:math/rand"
 import "core:math"
+import "core:fmt"
 
 FISH_SIZE: f32 : 3
 
-FISH_COMFORT_MIN : f32 : 20
-FISH_COMFORT_MAX : f32 : 30
+FISH_COMFORT_MIN : f32 : 10
 
 FISH_TO_AVERAGE_COMFORT_RANGE : f32 = math.sqrt(((math.PI * FISH_COMFORT_MIN * FISH_COMFORT_MIN) * cast(f32)INITIAL_FISH_COUNT) / math.PI)
 
-FISH_SHARK_DETECTION_RADIUS : int : 75
+FISH_SHARK_DETECTION_RADIUS : f32 : 40
 
 // pixels per second
-FISH_MAX_SPEED : f32 : 100
+FISH_MAX_SPEED : f32 : 300
 
-FISH_SCARED_SPEED_MULTIPLIER : f32 : 10
+FISH_SCARED_SPEED_MULTIPLIER : f32 : 100
 
 Fish :: struct {
 	position: raylib.Vector2,

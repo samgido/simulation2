@@ -4,13 +4,15 @@ import "vendor:raylib"
 import "core:math"
 import "core:fmt"
 
-StepSimulation :: proc(fishes: ^[dynamic]Fish) {
+StepSimulation :: proc(fishes: ^[dynamic]Fish, shark: ^Fish) {
 	for i := 0; i < len(fishes); i += 1 {
 		// Move fish
 		MoveFish(&fishes[i])
 
 		// Update velocity
-		UpdateVelocity(i, fishes)
+		UpdateVelocity(i, fishes, shark)
+
+		// Update Shark
 	}
 }
 
@@ -37,46 +39,65 @@ MoveFish :: proc(fish: ^Fish) {
 	fish.position = fish.position + movement
 }
 
-UpdateVelocity :: proc(current_index: int, fishes: ^[dynamic]Fish) {
+UpdateVelocity :: proc(current_index: int, fishes: ^[dynamic]Fish, shark: ^Fish) {
 	closest_fish: Fish
 	closest_distance: f32 = 1000
 
 	{ // Find closest fish / check for shark in radius
-		for i := 0; i < len(fishes); i += 1 {
-			if i == current_index { continue }
+		distance_to_shark := raylib.Vector2Distance(fishes[current_index].position, shark.position)
+		if distance_to_shark < cast(f32)FISH_SHARK_DETECTION_RADIUS {
+			closest_distance = distance_to_shark	
+			closest_fish = shark^
+		}
+		else {
+			for i := 0; i < len(fishes); i += 1 {
+				if i == current_index { continue }
 
-			distance := raylib.Vector2Distance(fishes[current_index].position, fishes[i].position)
+				distance := raylib.Vector2Distance(fishes[current_index].position, fishes[i].position)
 
-			if fishes[i].shark && distance < cast(f32)FISH_SHARK_DETECTION_RADIUS {
-				closest_distance = distance
-				closest_fish = fishes[i]
-				break
-			}
+				if fishes[i].shark && distance < cast(f32)FISH_SHARK_DETECTION_RADIUS {
+					closest_distance = distance
+					closest_fish = fishes[i]
+					break
+				}
 
-			// Was assigning closest_fish to shark even when it wasn't in detection radius
-			// So; added condition
-			if distance < closest_distance && !fishes[i].shark {
-				closest_distance = distance
-				closest_fish = fishes[i]
+				// Was assigning closest_fish to shark even when it wasn't in detection radius
+				// So; added condition
+				if distance < closest_distance && !fishes[i].shark {
+					closest_distance = distance
+					closest_fish = fishes[i]
+				}
 			}
 		}
 		if (closest_distance == 1000) { return }
 	}
 
 	{ // Update fish velocity 
+		fishes[current_index].velocity = 0
+
 		average_position := FindAveragePosition(current_index, fishes)
 
 		if closest_fish.shark {
-			fishes[current_index].velocity = -1 * (closest_fish.position - fishes[current_index].position) * FISH_SCARED_SPEED_MULTIPLIER
-		} else if closest_distance < FISH_COMFORT_MIN { // too close, move away from average
-			speed_ratio := FISH_COMFORT_MIN / closest_distance	
+			speed_ratio := 1 - (closest_distance / FISH_SHARK_DETECTION_RADIUS)
 
-			fishes[current_index].velocity = -1 * raylib.Vector2Normalize(closest_fish.position - fishes[current_index].position) * ( speed_ratio * FISH_MAX_SPEED )
-		} else if math.abs(raylib.Vector2Distance(average_position, fishes[current_index].position)) > FISH_TO_AVERAGE_COMFORT_RANGE / 3  {
-			fishes[current_index].velocity = raylib.Vector2Normalize(average_position - fishes[current_index].position) * FISH_MAX_SPEED
+			fishes[current_index].velocity += -1 * raylib.Vector2Normalize(closest_fish.position - fishes[current_index].position) * (speed_ratio * FISH_MAX_SPEED) * FISH_SCARED_SPEED_MULTIPLIER
+		} else if FISH_COMFORT_MIN - closest_distance > 0.1 { // too close, move away from average
+			speed_ratio := 1 - (closest_distance / FISH_COMFORT_MIN)
+
+			fishes[current_index].velocity += -1 * raylib.Vector2Normalize(closest_fish.position - fishes[current_index].position) * ( speed_ratio * FISH_MAX_SPEED )
 		}
-		else { fishes[current_index].velocity = 0 }
+
+		if raylib.Vector2Distance(average_position, fishes[current_index].position) > FISH_TO_AVERAGE_COMFORT_RANGE {
+			fishes[current_index].velocity += raylib.Vector2Normalize(average_position - fishes[current_index].position) * FISH_MAX_SPEED
+		} else {
+			fishes[current_index].velocity += raylib.Vector2Normalize(average_position - fishes[current_index].position) * FISH_MAX_SPEED * .2
+		}
 	}
+}
+
+UpdateShark :: proc(shark: ^Fish, fishes: ^[dynamic]Fish) {
+	// school_position := FindAveragePosition(-1, fishes)
+	school_position := raylib.Vector2 { cast(f32)raylib.GetScreenWidth() / 2, cast(f32)raylib.GetScreenHeight() / 2 } 
 }
 
 FindAveragePosition :: proc(excluded_index: int, fishes: ^[dynamic]Fish) -> raylib.Vector2 {
@@ -98,4 +119,4 @@ IsOutOfBoundsY :: proc(v: raylib.Vector2) -> bool {
 
 IsOutOfBoundsX :: proc(v: raylib.Vector2) -> bool {
 	return v.x < 0 || v.x >= cast(f32)raylib.GetScreenWidth()
-}
+}	
